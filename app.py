@@ -6,8 +6,8 @@ def get_range_for_difficulty(difficulty: str):
         return 1, 20
     if difficulty == "Normal":
         return 1, 100
-    if difficulty == "Hard":
-        return 1, 50
+    if difficulty == "Hard": 
+        return 1, 200 # FIXED (Bug 1): was 1,50 which is narrower than Normal
     return 1, 100
 
 
@@ -33,30 +33,22 @@ def check_guess(guess, secret):
     if guess == secret:
         return "Win", "🎉 Correct!"
 
-    try:
-        if guess > secret:
-            return "Too High", "📈 Go HIGHER!"
-        else:
-            return "Too Low", "📉 Go LOWER!"
-    except TypeError:
-        g = str(guess)
-        if g == secret:
-            return "Win", "🎉 Correct!"
-        if g > secret:
-            return "Too High", "📈 Go HIGHER!"
-        return "Too Low", "📉 Go LOWER!"
+    if guess > secret:
+        return "Too High", "📉 Go LOWER!"   # FIXED: was "Go HIGHER!"
+    else:
+        return "Too Low", "📈 Go HIGHER!"   # FIXED: was "Go LOWER!"
 
 
 def update_score(current_score: int, outcome: str, attempt_number: int):
     if outcome == "Win":
-        points = 100 - 10 * (attempt_number + 1)
+        points = 100 - 10 * attempt_number  # FIXED: was attempt_number + 1
         if points < 10:
-            points = 10
+            points = 10 
         return current_score + points
 
-    if outcome == "Too High":
+    if outcome == "Too High": 
         if attempt_number % 2 == 0:
-            return current_score + 5
+            return current_score - 5  # FIXED: was giving +5 on even attempts
         return current_score - 5
 
     if outcome == "Too Low":
@@ -78,9 +70,9 @@ difficulty = st.sidebar.selectbox(
 )
 
 attempt_limit_map = {
-    "Easy": 6,
-    "Normal": 8,
-    "Hard": 5,
+    "Easy": 10,
+    "Normal": 7, #FIXED: changed amount of attempts allowed for each difficulty
+    "Hard": 4,
 }
 attempt_limit = attempt_limit_map[difficulty]
 
@@ -93,7 +85,7 @@ if "secret" not in st.session_state:
     st.session_state.secret = random.randint(low, high)
 
 if "attempts" not in st.session_state:
-    st.session_state.attempts = 1
+    st.session_state.attempts = 0  # FIXED: was 1, causing off-by-one
 
 if "score" not in st.session_state:
     st.session_state.score = 0
@@ -106,17 +98,10 @@ if "history" not in st.session_state:
 
 st.subheader("Make a guess")
 
-st.info(
-    f"Guess a number between 1 and 100. "
+st.info( 
+    f"Guess a number between {low} and {high} " # FIXED was hardcoded "1 and 100" (reccomended by claude)
     f"Attempts left: {attempt_limit - st.session_state.attempts}"
 )
-
-with st.expander("Developer Debug Info"):
-    st.write("Secret:", st.session_state.secret)
-    st.write("Attempts:", st.session_state.attempts)
-    st.write("Score:", st.session_state.score)
-    st.write("Difficulty:", difficulty)
-    st.write("History:", st.session_state.history)
 
 raw_guess = st.text_input(
     "Enter your guess:",
@@ -133,7 +118,10 @@ with col3:
 
 if new_game:
     st.session_state.attempts = 0
-    st.session_state.secret = random.randint(1, 100)
+    st.session_state.secret = random.randint(low, high) # FIXED was hardcoded "1 and 100" (reccomended by claude)
+    st.session_state.status = "playing"   # FIXED (Bug 14): status never reset, blocking all guesses after win/loss
+    st.session_state.history = []         # FIXED (Bug 15): history never cleared on new game
+    st.session_state.score = 0
     st.success("New game started.")
     st.rerun()
 
@@ -155,8 +143,8 @@ if submit:
     else:
         st.session_state.history.append(guess_int)
 
-        if st.session_state.attempts % 2 == 0:
-            secret = str(st.session_state.secret)
+        if st.session_state.attempts % 2 == 0: 
+            secret = st.session_state.secret # FIXED: was conditionally cast to str on even attempts (reccomended by claude)
         else:
             secret = st.session_state.secret
 
@@ -186,6 +174,13 @@ if submit:
                     f"The secret was {st.session_state.secret}. "
                     f"Score: {st.session_state.score}"
                 )
+
+with st.expander("Developer Debug Info"):
+    st.write("Secret:", st.session_state.secret)
+    st.write("Attempts:", st.session_state.attempts)
+    st.write("Score:", st.session_state.score)
+    st.write("Difficulty:", difficulty)
+    st.write("History:", st.session_state.history)
 
 st.divider()
 st.caption("Built by an AI that claims this code is production-ready.")
